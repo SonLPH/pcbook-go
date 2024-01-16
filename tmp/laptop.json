@@ -1,0 +1,62 @@
+{
+  "id":  "6a6765d2-6a64-4b67-99e5-179a39b59015",
+  "brand":  "Dell",
+  "name":  "XPS",
+  "cpu":  {
+    "brand":  "Intel",
+    "name":  "Core i7",
+    "number_cores":  8,
+    "number_threads":  8,
+    "min_ghz":  3.393085533179063,
+    "max_ghz":  3.9790591553063073
+  },
+  "ram":  {
+    "value":  "60",
+    "unit":  "GIGABYTE"
+  },
+  "gpu":  [
+    {
+      "brand":  "NIVIDIA",
+      "name":  "RTX 2080",
+      "min_ghz":  1.3405144709353425,
+      "max_ghz":  1.5519256874128264,
+      "memory":  {
+        "value":  "2",
+        "unit":  "GIGABYTE"
+      }
+    }
+  ],
+  "storage":  [
+    {
+      "driver":  "SSD",
+      "memory":  {
+        "value":  "694",
+        "unit":  "GIGABYTE"
+      }
+    },
+    {
+      "driver":  "HDD",
+      "memory":  {
+        "value":  "5",
+        "unit":  "TERABYTE"
+      }
+    }
+  ],
+  "screen":  {
+    "size_inch":  15.253382,
+    "resolution":  {
+      "width":  5283,
+      "height":  2972
+    },
+    "panel":  "IPS",
+    "multi_touch":  false
+  },
+  "keyboard":  {
+    "layout":  "AZERTY",
+    "backlit":  true
+  },
+  "weight_kg":  1.1367666640456637,
+  "price_usd":  2955.8823429651447,
+  "release_year":  0,
+  "updated_at":  "2024-01-16T16:37:56.035690Z"
+}
