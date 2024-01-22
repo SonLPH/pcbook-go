@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"github.com/SonLPH/pcbook-go/pb"
 	"github.com/SonLPH/pcbook-go/service"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -44,6 +46,20 @@ func accessibleRoles() map[string][]string {
 	}
 }
 
+func loadLTSCredential() (credentials.TransportCredentials, error) {
+	serverCert, err := tls.LoadX509KeyPair("cert/server-cert.pem", "cert/server-key.pem")
+	if err != nil {
+		return nil, err
+	}
+
+	config := &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:   tls.NoClientCert,
+	}
+
+	return credentials.NewTLS(config), nil
+}
+
 func main() {
 	port := flag.Int("port", 0, "the server port")
 	flag.Parse()
@@ -64,9 +80,14 @@ func main() {
 	ratingStore := service.NewInMemoryRatingStore()
 	laptopServer := service.NewLaptopServer(laptopStore, imageStore, ratingStore)
 
+	tlsCredentials, err := loadLTSCredential()
+	if err != nil {
+		log.Fatal("cannot load TLS credentials: ", err)
+	}
 	interceptor := service.NewAuthInterceptor(jwtManager, accessibleRoles())
 
 	grpcServer := grpc.NewServer(
+		grpc.Creds(tlsCredentials),
 		grpc.UnaryInterceptor(interceptor.Unary()),
 		grpc.StreamInterceptor(interceptor.Stream()),
 	)
