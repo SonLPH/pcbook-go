@@ -2,10 +2,12 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"time"
 
 	"github.com/SonLPH/pcbook-go/pb"
@@ -47,6 +49,15 @@ func accessibleRoles() map[string][]string {
 }
 
 func loadLTSCredential() (credentials.TransportCredentials, error) {
+	pemServerCA, err := os.ReadFile("cert/ca-cert.pem")
+	if err != nil {
+		return nil, err
+	}
+
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(pemServerCA) {
+		return nil, fmt.Errorf("failed to add server CA's certificate")
+	}
 	serverCert, err := tls.LoadX509KeyPair("cert/server-cert.pem", "cert/server-key.pem")
 	if err != nil {
 		return nil, err
@@ -54,7 +65,8 @@ func loadLTSCredential() (credentials.TransportCredentials, error) {
 
 	config := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
-		ClientAuth:   tls.NoClientCert,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    certPool,
 	}
 
 	return credentials.NewTLS(config), nil
@@ -62,8 +74,9 @@ func loadLTSCredential() (credentials.TransportCredentials, error) {
 
 func main() {
 	port := flag.Int("port", 0, "the server port")
+	enableTLS := flag.Bool("tls", false, "enable SSL/TLS")
 	flag.Parse()
-	log.Print("Start server on port: ", *port)
+	log.Printf("Start server on port %d, TLS = %t ", *port, *enableTLS)
 
 	userStore := service.NewInMemoryUserStore()
 
@@ -80,16 +93,22 @@ func main() {
 	ratingStore := service.NewInMemoryRatingStore()
 	laptopServer := service.NewLaptopServer(laptopStore, imageStore, ratingStore)
 
-	tlsCredentials, err := loadLTSCredential()
-	if err != nil {
-		log.Fatal("cannot load TLS credentials: ", err)
-	}
 	interceptor := service.NewAuthInterceptor(jwtManager, accessibleRoles())
-
-	grpcServer := grpc.NewServer(
-		grpc.Creds(tlsCredentials),
+	serverOptions := []grpc.ServerOption{
 		grpc.UnaryInterceptor(interceptor.Unary()),
 		grpc.StreamInterceptor(interceptor.Stream()),
+	}
+
+	if *enableTLS {
+		tlsCredentials, err := loadLTSCredential()
+		if err != nil {
+			log.Fatal("cannot load TLS credentials: ", err)
+		}
+		serverOptions = append(serverOptions, grpc.Creds(tlsCredentials))
+	}
+
+	grpcServer := grpc.NewServer(
+		serverOptions...,
 	)
 
 	pb.RegisterAuthServiceServer(grpcServer, authServer)

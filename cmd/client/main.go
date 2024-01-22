@@ -15,6 +15,7 @@ import (
 	"github.com/SonLPH/pcbook-go/sample"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func testCreateLaptop(laptopClient *client.LaptopClient) {
@@ -75,7 +76,7 @@ func testRateLapop(laptopClient *client.LaptopClient) {
 }
 
 const (
-	username         = "user1"
+	username         = "admin1"
 	password         = "secret"
 	refreshDuaration = 30 * time.Second
 )
@@ -101,8 +102,14 @@ func loadLTSCredential() (credentials.TransportCredentials, error) {
 		return nil, fmt.Errorf("failed to add server CA's certificate")
 	}
 
+	clientCert, err := tls.LoadX509KeyPair("cert/client-cert.pem", "cert/client-key.pem")
+	if err != nil {
+		return nil, err
+	}
+
 	config := &tls.Config{
-		RootCAs: certPool,
+		Certificates: []tls.Certificate{clientCert},
+		RootCAs:      certPool,
 	}
 
 	return credentials.NewTLS(config), nil
@@ -110,15 +117,21 @@ func loadLTSCredential() (credentials.TransportCredentials, error) {
 
 func main() {
 	serverAddress := flag.String("address", "", "the server address")
+	enableTLS := flag.Bool("tls", false, "enable SSL/TLS")
 	flag.Parse()
-	log.Printf("Dial server: %s", *serverAddress)
+	log.Printf("Dial server: %s, TLS = %t", *serverAddress, *enableTLS)
 
-	tlsCredentials, err := loadLTSCredential()
-	if err != nil {
-		log.Fatal("cannot load TLS credentials: ", err)
+	transportOption := grpc.WithTransportCredentials(insecure.NewCredentials())
+
+	if *enableTLS {
+		tlsCredentials, err := loadLTSCredential()
+		if err != nil {
+			log.Fatal("cannot load TLS credentials: ", err)
+		}
+		transportOption = grpc.WithTransportCredentials(tlsCredentials)
 	}
 
-	cc1, err := grpc.Dial(*serverAddress, grpc.WithTransportCredentials(tlsCredentials))
+	cc1, err := grpc.Dial(*serverAddress, transportOption)
 	if err != nil {
 		log.Fatal("cannot dial server: ", err)
 	}
@@ -132,10 +145,13 @@ func main() {
 
 	cc2, err := grpc.Dial(
 		*serverAddress,
-		grpc.WithTransportCredentials(tlsCredentials),
+		transportOption,
 		grpc.WithUnaryInterceptor(interceptor.Unary()),
 		grpc.WithStreamInterceptor(interceptor.Stream()),
 	)
+	if err != nil {
+		log.Fatal("cannot dial server: ", err)
+	}
 
 	laptopClient := client.NewLaptopClient(cc2)
 	testRateLapop(laptopClient)
